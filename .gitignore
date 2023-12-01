@@ -1,0 +1,5 @@
+ai_ocr/openAI.env
+ai_ocr/Tesseract-OCR/
+static/
+.vscode/
+__pycache__/
