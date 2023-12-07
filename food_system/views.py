@@ -1,13 +1,14 @@
 from django.shortcuts import render, redirect,  get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
-from .models import Business,Product, Request, Delivery
+from .models import Business,Product, Request, Delivery, HistoryRequest, HistoryDelivery
 from chat.models import Chat
 from accounts.models import UserProfile
 import json
 from django.core.files.uploadedfile import SimpleUploadedFile
 from .decorators import is_service_prov_required
 from notifications.models import Notification
+from django.utils.html import format_html
 
 
 # Create your views here.
@@ -82,7 +83,8 @@ def profile(request):
     is_delivering = UserProfile.objects.filter(username=user, is_service_prov=True).exists() if user.is_authenticated else False
     deliveries = Delivery.objects.filter(fk_id_delivery_man=user_profile.id).exclude(finished=True)
     unread_notifications = Notification.objects.filter(is_read=False)
-
+    history_orders = HistoryRequest.objects.filter(fk_id_user=user_profile)
+    history_deliveries = HistoryDelivery.objects.filter(fk_id_client=user_profile)
     #MOSTRAR ORDENES EN CURSO
 
     user_id = user.id
@@ -93,7 +95,9 @@ def profile(request):
         'orders': user_requests,
         'is_delivering': is_delivering,
         'deliveries':deliveries,
-        'unread_notifications':unread_notifications
+        'unread_notifications':unread_notifications,
+        'history': history_orders,
+        'history_deliveries': history_deliveries
     }
 
     #ELIMINAR ORDEN 
@@ -131,7 +135,10 @@ def profile(request):
 
         Notification.objects.create(
             recipient=request_item.fk_id_user,
-            message=f"Confirma la finalización de tu últim pedido con ID {request_item.id_request} en el apartado de PERFIL (PROFILE)",
+            message=format_html(
+                "Confirma la finalización de tu último pedido con ID {} en el apartado de PERFIL <a href='/profile'>(PROFILE)</a>",
+                request_item.id_request
+            ),
         )
 
         return redirect('/profile') 
@@ -142,13 +149,12 @@ def profile(request):
 
         order_id = request.POST.get('order_id')  
         order_object = Request.objects.get(id_request=order_id)
-
-        order_object.status = "Finalizado"
-        order_object.save()
-
-        delivery_associated = Delivery.objects.get(fk_id_request=order_id)
+        delivery_associated = Delivery.objects.get(fk_id_request=order_object)
         delivery_associated.finished = True
         delivery_associated.save()
+        delivery_associated.order_finished()
+        order_object.status = "Finalizado"
+        order_object.save()
 
         return redirect('/profile') 
 
@@ -191,6 +197,8 @@ def my_request(request):
         form_data = request.POST
         uploaded_file = request.FILES.get('file') 
         user_id = UserProfile.objects.get(id=user.id)
+
+        
 
         Request.objects.create(
                 fk_id_user=user_id,

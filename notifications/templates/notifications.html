@@ -47,7 +47,7 @@
 <div class="notifications">
     {% for notification in notifications %}
         <div class="notification {% if notification.is_read %}read{% else %}unread{% endif %}">
-            <p>{{ notification.message }}</p>
+            <p>{{ notification.message |safe }}</p>
             <small>{{ notification.timestamp }}</small>
             {% if not notification.is_read %}
                 <button class="mark-as-read">Mark as Read</button>
